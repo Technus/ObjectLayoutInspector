@@ -19,6 +19,11 @@
             An offset of a field from the beginning of a struct.
             </summary>
         </member>
+        <member name="P:ObjectLayoutInspector.FieldLayoutBase.DeclaringType">
+            <summary>
+            Type which declared this field
+            </summary>
+        </member>
         <member name="M:ObjectLayoutInspector.FieldLayoutBase.#ctor(System.Int32,System.Int32)">
             <nodoc />
         </member>
@@ -39,6 +44,9 @@
         <member name="P:ObjectLayoutInspector.FieldLayout.FieldInfo">
             <nodoc />
         </member>
+        <member name="P:ObjectLayoutInspector.FieldLayout.DeclaringType">
+            <nodoc />
+        </member>
         <member name="M:ObjectLayoutInspector.FieldLayout.Equals(System.Object)">
             <inheritdoc />
         </member>
@@ -53,7 +61,10 @@
             Represents a padding between fields.
             </summary>
         </member>
-        <member name="M:ObjectLayoutInspector.Padding.#ctor(System.Int32,System.Int32)">
+        <member name="M:ObjectLayoutInspector.Padding.#ctor(System.Int32,System.Int32,System.Type)">
+            <nodoc />
+        </member>
+        <member name="P:ObjectLayoutInspector.Padding.DeclaringType">
             <nodoc />
         </member>
         <member name="P:ObjectLayoutInspector.Padding.NameOrDescription">

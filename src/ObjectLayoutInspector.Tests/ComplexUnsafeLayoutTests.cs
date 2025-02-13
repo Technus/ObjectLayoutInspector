@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections.Generic;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
+using System.Runtime.CompilerServices;
 
 namespace ObjectLayoutInspector.Tests
 {
@@ -38,7 +39,9 @@ namespace ObjectLayoutInspector.Tests
         public void MASTER_STRUCTFieldsRecursive()
         {
             var structLayout = UnsafeLayout.GetLayout<MASTER_STRUCT>(recursive: true, new List<Type> { typeof(Guid) });
-            Assert.AreEqual(7, structLayout.Count());
+            Assert.AreEqual(9, structLayout.Count());//Not perfect but better assertion due to padding interleaving
+                                                     //different .NET versions use different approach to layout the STRUCT2
+                                                     //sometimes the padding in inside the struct instead of end
         }
 
         [Test]
@@ -76,13 +79,22 @@ namespace ObjectLayoutInspector.Tests
             Assert.AreEqual(typeof(double), structLayout[0].FieldInfo.FieldType);
             Assert.AreEqual(8, structLayout[1].Offset);
             Assert.AreEqual(4, structLayout[1].Size);
-            Assert.AreEqual(typeof(Single), structLayout[1].FieldInfo.FieldType);
+            Assert.AreEqual(typeof(float), structLayout[1].FieldInfo.FieldType);
             Assert.AreEqual(16, structLayout[2].Offset);
             Assert.AreEqual(1, structLayout[2].Size);
             Assert.AreEqual(typeof(ByteEnum), structLayout[2].FieldInfo.FieldType);
             Assert.AreEqual(20, structLayout[3].Offset);
             Assert.AreEqual(4, structLayout[3].Size);
             Assert.AreEqual(typeof(int), structLayout[3].FieldInfo.FieldType);
+        }
+
+        [Test]
+        public unsafe void UnionHasCorrectSize()
+        {
+            Assert.AreEqual(Math.Max(sizeof(STRUCT1), sizeof(STRUCT2)), sizeof(MASTER_STRUCT_UNION));
+            Assert.AreEqual(Math.Max(sizeof(STRUCT1), sizeof(STRUCT2)), sizeof(MASTER_STRUCT));
+            Assert.AreEqual(Math.Max(Unsafe.SizeOf<STRUCT1>(), Unsafe.SizeOf<STRUCT2>()), Unsafe.SizeOf<MASTER_STRUCT_UNION>());
+            Assert.AreEqual(Math.Max(Unsafe.SizeOf<STRUCT1>(), Unsafe.SizeOf<STRUCT2>()), Unsafe.SizeOf<MASTER_STRUCT>());
         }
     }
 }

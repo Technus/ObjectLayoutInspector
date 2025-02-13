@@ -13,7 +13,7 @@ namespace ObjectLayoutInspector
                              .CustomAttributes.Where(x => x.AttributeType.Equals(typeof(FixedBufferAttribute)))
                              .Select(x => x.ConstructorArguments)
                              .FirstOrDefault();
-            fixedBuffer = fixedCheck != null ? (int)fixedCheck[1].Value : 0;
+            fixedBuffer = fixedCheck is null ? 0 : (int)fixedCheck[1].Value;
             return fixedBuffer != 0;
         }
 

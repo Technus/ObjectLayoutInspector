@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 
 namespace ObjectLayoutInspector
 {
@@ -6,32 +9,55 @@ namespace ObjectLayoutInspector
     {
         public static void AddPaddings(bool includePaddings, int size, FieldLayout[] fieldsOffsets, List<FieldLayoutBase> layouts)
         {
-            if (includePaddings && fieldsOffsets.Length != 0 && fieldsOffsets[0].Offset != 0)
+            if (includePaddings)
             {
-                layouts.Add(new Padding(0, fieldsOffsets[0].Offset));
-            }
+                var dict = new Dictionary<Type, (int start, int end, List<FieldLayout> fields)>();
 
-            for (var index = 0; index < fieldsOffsets.Length; index++)
-            {
-                var fieldOffset = fieldsOffsets[index];
-                layouts.Add(fieldOffset);
-
-                if (includePaddings)
+                foreach (var fieldOffset in fieldsOffsets)
                 {
-                    int nextOffsetOrSize = size;
-                    if (index != fieldsOffsets.Length - 1)
+                    if (dict.TryGetValue(fieldOffset.DeclaringType, out var range))
                     {
-                        // This is not a last field.
-                        nextOffsetOrSize = fieldsOffsets[index + 1].Offset;
+                        range.fields.Add(fieldOffset);
+                        range = (Math.Min(range.start, fieldOffset.Offset), Math.Max(range.end, fieldOffset.Offset + fieldOffset.Size), range.fields);
+                    }
+                    else
+                    {
+                        range = (fieldOffset.Offset, fieldOffset.Offset + fieldOffset.Size, new List<FieldLayout>() { fieldOffset });
                     }
 
-                    var nextSectionOffsetCandidate = fieldOffset.Offset + fieldOffset.Size;
-                    if (nextSectionOffsetCandidate < nextOffsetOrSize)
+                    dict[fieldOffset.DeclaringType] = range;
+                }
+
+                foreach (var item in dict)
+                {
+                    if (item.Value.start != 0)
                     {
-                        // we have padding
-                        layouts.Add(new Padding(nextSectionOffsetCandidate, nextOffsetOrSize - nextSectionOffsetCandidate));
+                        layouts.Add(new Padding(0, item.Value.start, item.Key));
+                    }
+
+                    var field = item.Value.fields[0];
+                    layouts.Add(field);
+
+                    for (int index = 1; index < item.Value.fields.Count; index++)
+                    {
+                        var fieldNext = item.Value.fields[index];
+                        if(field.Offset+field.Size != fieldNext.Offset)
+                        {
+                            layouts.Add(new Padding(field.Offset + field.Size, fieldNext.Offset - (field.Offset + field.Size), item.Key));
+                        }
+                        layouts.Add(fieldNext);
+                        field = fieldNext;
+                    }
+
+                    if (item.Value.end != size)
+                    {
+                        layouts.Add(new Padding(item.Value.end, size - item.Value.end, item.Key));
                     }
                 }
+            }
+            else
+            {
+                layouts.AddRange(fieldsOffsets);
             }
         }
     }

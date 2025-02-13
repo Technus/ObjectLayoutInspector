@@ -113,7 +113,7 @@ namespace ObjectLayoutInspector
         {
             // GetFields does not return private fields from the base types.
             // Need to use a custom helper function.
-            var fields = t.GetInstanceFields();
+            var (fields, types) = t.GetInstanceFields();
             //var fields2 = t.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic);
 
             Func<object?, long[]> fieldOffsetInspector = GenerateFieldOffsetInspectionFunction(fields);
@@ -136,10 +136,19 @@ namespace ObjectLayoutInspector
             // Converting field addresses to offsets using the first field as a baseline
             return fields
                 .Select((field, index) => (field: field, offset: (int)(addresses[index + 1] - baseLine)))
-                .OrderBy(tpl => tpl.offset)
+                .OrderBy(tpl => GetIndexOf(tpl.field.DeclaringType)).ThenBy(tpl => tpl.offset)
                 .ToArray();
 
             long GetBaseLine(long referenceAddress) => t.IsValueType ? referenceAddress : referenceAddress + IntPtr.Size;
+            int GetIndexOf(Type type)
+            {
+                for (int i = types.Length - 1; i >= 0; i--)
+                {
+                    if (types[i] == type)
+                        return i;
+                }
+                return types.Length;
+            }
         }
 
         private static Func<object?, long[]> GenerateFieldOffsetInspectionFunction(FieldInfo[] fields)

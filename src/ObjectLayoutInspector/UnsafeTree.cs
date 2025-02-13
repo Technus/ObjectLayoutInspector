@@ -9,15 +9,10 @@ namespace ObjectLayoutInspector
     internal enum NodeKind : byte
     {
         Primitive,
-
         Complex,
-
         Nullable,
-
         Root,
-
         Fixed,
-
         Reference
     }
 
@@ -25,22 +20,33 @@ namespace ObjectLayoutInspector
     [StructLayout(LayoutKind.Explicit)]
     internal struct FieldNode
     {
-        public static FieldNode[] GetFieldNodes(Type type)
+        public static (FieldNode[] fields, Type[] types) GetFieldNodes(Type type)
         {
-            return ReflectionHelper.GetInstanceFields(type).Select(x =>
+            var (fields, types) = ReflectionHelper.GetInstanceFields(type);
+            return (fields.Select(x =>
             {
-                int length = 0;
-                return
-                    x.FieldType.IsClass
-                    ? new FieldNode { kind = NodeKind.Reference, referenceNode = new ReferenceNode(x) }
-                    : Detectors.IsPrimitive(x)
-                    ? new FieldNode { kind = NodeKind.Primitive, primitiveNode = new PrimitiveNode { info = x } }
-                    : Detectors.IsNullable(x)
-                    ? new FieldNode { kind = NodeKind.Nullable, nullableNode = new NullableNode { info = x } }
-                    : Detectors.IsFixed(x, out length)
-                    ? new FieldNode { kind = NodeKind.Fixed, fixedNode = new FixedNode { info = x, length = length } }
-                    : new FieldNode { kind = NodeKind.Complex, complexNode = new ComplexNode { info = x } };
-            }).ToArray();
+                if (x.FieldType.IsClass)
+                {
+                    return new FieldNode { kind = NodeKind.Reference, referenceNode = new ReferenceNode(x) };
+                }
+
+                if (Detectors.IsPrimitive(x))
+                {
+                    return new FieldNode { kind = NodeKind.Primitive, primitiveNode = new PrimitiveNode { info = x } };
+                }
+
+                if (Detectors.IsNullable(x))
+                {
+                    return new FieldNode { kind = NodeKind.Nullable, nullableNode = new NullableNode { info = x } };
+                }
+
+                if (Detectors.IsFixed(x, out int length))
+                {
+                    return new FieldNode { kind = NodeKind.Fixed, fixedNode = new FixedNode { info = x, length = length } };
+                }
+
+                return new FieldNode { kind = NodeKind.Complex, complexNode = new ComplexNode { info = x } };
+            }).ToArray(), types);
         }
 
         [FieldOffset(0)]
@@ -57,7 +63,7 @@ namespace ObjectLayoutInspector
 
         [FieldOffset(8)]
         public PrimitiveNode primitiveNode;
-        
+
         [FieldOffset(8)]
         public ComplexNode complexNode;
 
@@ -109,7 +115,7 @@ namespace ObjectLayoutInspector
 
         [FieldOffset(16)]
         public FieldInfo info;
-       
+
         // Nullable can be only of Complex or Primitive, so may model FieldNode as remain part only of 2
         // validate of same size and field layout it test and Unsafe.As map to reinterpret cast
         /// <summary>
@@ -124,7 +130,7 @@ namespace ObjectLayoutInspector
         public Type Type => info.FieldType;
     }
 
-    internal class Ref<T> where T: struct
+    internal class Ref<T> where T : struct
     {
         public T value;
 
@@ -165,7 +171,7 @@ namespace ObjectLayoutInspector
         public FieldInfo info;
 
         public Type Type => info.FieldType;
-    } 
+    }
 
     [StructLayout(LayoutKind.Explicit)]
     internal struct ComplexNode
@@ -200,6 +206,6 @@ namespace ObjectLayoutInspector
         [FieldOffset(24)]
         public FieldNode[] children;
 
-        public bool IsPrimitive => children == null;
+        public bool IsPrimitive => children is null;
     }
 }

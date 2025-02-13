@@ -127,7 +127,7 @@ namespace ObjectLayoutInspector
         /// </summary>
         public static TypeLayout GetLayout(Type type, TypeLayoutCache? cache = null, bool includePaddings = true)
         {
-            if (cache != null && cache.LayoutCache.TryGetValue(type, out var result))
+            if (cache?.LayoutCache.TryGetValue(type, out var result) ?? false)
             {
                 return result;
             }

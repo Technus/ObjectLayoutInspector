@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 
 namespace ObjectLayoutInspector
 {
@@ -16,6 +17,11 @@ namespace ObjectLayoutInspector
         /// An offset of a field from the beginning of a struct.
         /// </summary>
         public int Offset { get; }
+
+        /// <summary>
+        /// Type which declared this field
+        /// </summary>
+        public abstract Type DeclaringType { get; }
 
         /// <nodoc />
         protected FieldLayoutBase(int offset, int size)
@@ -58,6 +64,9 @@ namespace ObjectLayoutInspector
         /// <nodoc />
         public FieldInfo FieldInfo { get; }
 
+        /// <nodoc />
+        public override Type DeclaringType => FieldInfo.DeclaringType;
+
         /// <inheritdoc />
         public override bool Equals(object obj) =>
             obj is FieldLayout fieldLayout
@@ -66,14 +75,11 @@ namespace ObjectLayoutInspector
             && FieldInfo == fieldLayout.FieldInfo;
 
         /// <inheritdoc />
-        public override int GetHashCode()
-        {
-            return (Offset, Size, FieldInfo).GetHashCode();
-        }
+        public override int GetHashCode() => (Offset, Size, FieldInfo).GetHashCode();
 
         /// <inheritdoc />
         protected override string NameOrDescription =>
-            $"{FieldInfo.FieldType.Name} {FieldInfo.Name}";
+            $"{FieldInfo.FieldType.Name} {FieldInfo.Name} for {DeclaringType.Name}";
     }
 
     /// <summary>
@@ -82,23 +88,26 @@ namespace ObjectLayoutInspector
     public sealed class Padding : FieldLayoutBase
     {
         /// <nodoc />
-        public Padding(int offset, int size) : base(offset, size)
+        public Padding(int offset, int size, Type declaringType) : base(offset, size)
         {
+            DeclaringType = declaringType;
         }
 
+        /// <nodoc />
+        public override Type DeclaringType { get; }
+
         /// <inheritdoc />
-        protected override string NameOrDescription => "padding";
+        protected override string NameOrDescription => 
+            $"padding for {DeclaringType.Name}";
 
         /// <inheritdoc />
         public override bool Equals(object obj) =>
             obj is Padding padding
             && Offset == padding.Offset
-            && Size == padding.Size;
+            && Size == padding.Size
+            && DeclaringType == padding.DeclaringType;
 
         /// <inheritdoc />
-        public override int GetHashCode()
-        {
-            return (Offset, Size).GetHashCode();
-        }
+        public override int GetHashCode() => (Offset, Size, DeclaringType).GetHashCode();
     }
 }

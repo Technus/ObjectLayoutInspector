@@ -63,12 +63,13 @@ namespace ObjectLayoutInspector
             }
 
             var tree = GetLayoutTree<T>();
-            IEnumerable<FieldLayout> fieldsLayout =
+            var fieldsLayout =
                 GetFieldsLayoutInternal<T>(in tree, recursive, considerPrimitives)
-                .OrderBy(x => x.Offset);
+                .OrderBy(x => x.Offset)
+                .ToArray();
 
             var layouts = new List<FieldLayoutBase>();
-            Padder.AddPaddings(true, Unsafe.SizeOf<T>(), fieldsLayout.OrderBy(x => x.Offset).ToArray(), layouts);
+            Padder.AddPaddings(true, Unsafe.SizeOf<T>(), fieldsLayout, layouts);
             return layouts;
         }
 
@@ -82,7 +83,7 @@ namespace ObjectLayoutInspector
             }
             else if (!recursive)
             {
-                if (primitives != null && primitives.Contains(typeof(T)))
+                if (primitives?.Contains(typeof(T)) ?? false)
                 {
                     fieldsLayout.Add(new FieldLayout(tree.totalOffset, tree.info, tree.size));
                     return fieldsLayout;
@@ -98,7 +99,7 @@ namespace ObjectLayoutInspector
             }
             else
             {
-                if (primitives != null && primitives.Contains(typeof(T)))
+                if (primitives?.Contains(typeof(T)) ?? false)
                 {
                     fieldsLayout.Add(new FieldLayout(tree.totalOffset, tree.info, tree.size));
                     return fieldsLayout;
@@ -106,8 +107,8 @@ namespace ObjectLayoutInspector
 
                 for (var i = 0; i < tree.children.Length; i++)
                 {
-                    IsTerminal check = (n) => primitives != null ? primitives.Contains(n.Type) : false;
-                    GetLayout(ref tree.children[i], fieldsLayout, check);
+                    bool Check(FieldNode n) => primitives?.Contains(n.Type) ?? false;
+                    GetLayout(ref tree.children[i], fieldsLayout, Check);
                 }
 
                 return fieldsLayout;
@@ -217,7 +218,7 @@ namespace ObjectLayoutInspector
         private static RootNode GetLayoutTree<T>() where T : struct
         {
             var type = typeof(T);
-            var fields = FieldNode.GetFieldNodes(type);
+            var (fields, _) = FieldNode.GetFieldNodes(type);
             var root = new FieldNode { kind = NodeKind.Root, rootNode = new RootNode { children = fields, totalOffset = 0, size = Unsafe.SizeOf<T>() } };
             var previous = 0;
             GetLayout<T>(ref previous, ref root, new List<ValueGetter>(), new List<Twiddler<T>?> { null });
@@ -228,7 +229,7 @@ namespace ObjectLayoutInspector
         private static void GetLayout<T>(
            ref int previous,
            ref FieldNode node,
-           List<Func<object?, object?>> getterHierarchy,
+           List<ValueGetter> getterHierarchy,
            List<Twiddler<T>?> twiddlerHierarchy)
            where T : struct
         {
@@ -257,21 +258,21 @@ namespace ObjectLayoutInspector
                     // Activator.CreateInstance creates null for nullable
                     // cannot FieldInfo.GetValue fields of Value and HasValue as System.NotSupportedException : Specified method is not supported.  0
 
-                    var nullable = FieldNode.GetFieldNodes(node.nullableNode.Type);
-                    node.nullableNode.hasValue = new Ref<FieldNode>(nullable[0]);
-                    node.nullableNode.value = new Ref<FieldNode>(nullable[1]);
+                    var (fields, _) = FieldNode.GetFieldNodes(node.nullableNode.Type);
+                    node.nullableNode.hasValue = new Ref<FieldNode>(fields[0]);
+                    node.nullableNode.value = new Ref<FieldNode>(fields[1]);
                     ref var hasValue = ref node.nullableNode.hasValue.value;
                     getterHierarchy.Add(node.info.GetValue);
 
                     var propertyGetter = node.info.FieldType.GetProperty("HasValue");
-                    Func<object?, object?> hasValueGetter = x => x != null ? propertyGetter.GetValue(x) : null;
+                    ValueGetter hasValueGetter = x => x is null ? null : propertyGetter.GetValue(x);
                     getterHierarchy.Add(hasValueGetter);
-                    ValueComparer hasValueEmptyComparator = x => x == null;
+                    ValueComparer hasValueEmptyComparator = x => x is null;
                     FindPrimitiveOffset<T>(ref hasValue.primitiveNode, getterHierarchy, hasValueEmptyComparator, twiddlerHierarchy);
                     getterHierarchy.RemoveAt(getterHierarchy.Count - 1);
 
                     var underType = Nullable.GetUnderlyingType(node.nullableNode.Type);
-                    ValueComparer nullableEmptyComparator = x => Activator.CreateInstance(underType).Equals(x);
+                    ValueComparer nullableEmptyComparator = x => Activator.CreateInstance(underType).Equals(x);//unused?
                     var valueProperty = node.info.FieldType.GetProperty("Value"); // may cache handles 
                     getterHierarchy.Add(valueProperty.GetValue);
                     var t = new NullableTwiddler(hasValue.totalOffset);
@@ -310,7 +311,7 @@ namespace ObjectLayoutInspector
                         getterHierarchy.Add(node.info.GetValue);
                     }
 
-                    node.complexNode.children = FieldNode.GetFieldNodes(node.complexNode.Type);
+                    node.complexNode.children = FieldNode.GetFieldNodes(node.complexNode.Type).fields;
                     for (var i = 0; i < node.complexNode.children.Length; i++)
                     {
                         ref var child = ref node.complexNode.children[i];
@@ -403,7 +404,7 @@ namespace ObjectLayoutInspector
 
                 seedByteRef = byte.MaxValue;
                 object value2 = fieldInfo.GetValue(GetValue(getterHierarchy, seed));
-                if (value2 != null)
+                if (value2 is object)
                 {
                     node.totalOffset = i;
                     return;
