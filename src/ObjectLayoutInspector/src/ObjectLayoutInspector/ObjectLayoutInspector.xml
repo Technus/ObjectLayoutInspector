@@ -199,6 +199,26 @@
             Size of an empty space in the instance.
             </summary>
         </member>
+        <member name="P:ObjectLayoutInspector.TypeLayout.UsedBytes">
+            <summary>
+            Array holding used bytes
+            </summary>
+        </member>
+        <member name="P:ObjectLayoutInspector.TypeLayout.PaddingBytes">
+            <summary>
+            Array holding padding bytes
+            </summary>
+        </member>
+        <member name="P:ObjectLayoutInspector.TypeLayout.MixedBytes">
+            <summary>
+            Array holding mixed bytes
+            </summary>
+        </member>
+        <member name="P:ObjectLayoutInspector.TypeLayout.IsUnsafeValueType">
+            <summary>
+            Is the inspected type unsafe, if so the <see cref="P:ObjectLayoutInspector.TypeLayout.Paddings"/> is unknown
+            </summary>
+        </member>
         <member name="P:ObjectLayoutInspector.TypeLayout.Fields">
             <nodoc />
         </member>

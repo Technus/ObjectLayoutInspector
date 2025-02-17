@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace ObjectLayoutInspector
@@ -26,6 +27,10 @@ namespace ObjectLayoutInspector
         /// <nodoc />
         protected FieldLayoutBase(int offset, int size)
         {
+            if (size <= 0)
+                throw new ArgumentOutOfRangeException(nameof(size), size, "Must be positive");
+            if (offset < 0)
+                throw new ArgumentOutOfRangeException(nameof(size), size, "Must be not negative");
             Offset = offset;
             Size = size;
         }

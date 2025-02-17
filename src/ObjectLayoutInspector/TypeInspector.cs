@@ -27,7 +27,7 @@ namespace ObjectLayoutInspector
             }
 
             var size = GetSizeOfReferenceTypeInstance(type);
-            return (size, 2 * IntPtr.Size);
+            return (size, overhead: 2 * IntPtr.Size);
         }
 
         /// <summary>
@@ -47,7 +47,7 @@ namespace ObjectLayoutInspector
 
             // The size of the reference type is computed in the following way:
             // MaxFieldOffset + SizeOfThatField
-            // and round that number to closest point size boundary
+            // and round that number to closest pointer size boundary
             var maxValue = fields.MaxBy(tpl => tpl.offset);
             int sizeCandidate = maxValue.offset + GetFieldSize(maxValue.fieldInfo.FieldType);
 

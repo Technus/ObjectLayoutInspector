@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
 using System.Runtime.CompilerServices;
+using ObjectLayoutInspector.Tests.Structs;
 
 namespace ObjectLayoutInspector.Tests
 {
@@ -20,13 +21,24 @@ namespace ObjectLayoutInspector.Tests
         [Test]
         public void ComplexStruct() => AssertNonRecursive<ComplexStruct>();
 
+        [Test]
+        public void DoubleFloatStruct() => AssertNonRecursive<DoubleFloatStruct>();
+
+        [Test]
+        public void EnumIntStruct() => AssertNonRecursive<EnumIntStruct>();
+
 
         [Test]
         public void VeryVeryComplexStructFields()
         {
+            LayoutPrinter.Print<VeryVeryComplexStruct>(true);
             var structLayout = UnsafeLayout.GetFieldsLayout<VeryVeryComplexStruct>(recursive:true);
             var six = structLayout[5];
+#if NET6_0_OR_GREATER //The layout changes on .NET 6
             Assert.AreEqual(16, six.Offset);
+#else
+            Assert.AreEqual(8 + IntPtr.Size, six.Offset);
+#endif
             Assert.AreEqual(8, six.Size);
             Assert.AreEqual(typeof(double), six.FieldInfo.FieldType);
             Assert.AreEqual(2, structLayout.Where(x=> x.FieldInfo.FieldType == (typeof(double))).Count());
@@ -38,10 +50,12 @@ namespace ObjectLayoutInspector.Tests
         [Test]
         public void MASTER_STRUCTFieldsRecursive()
         {
+            LayoutPrinter.Print<MASTER_STRUCT>(true);
             var structLayout = UnsafeLayout.GetLayout<MASTER_STRUCT>(recursive: true, new List<Type> { typeof(Guid) });
-            Assert.AreEqual(9, structLayout.Count());//Not perfect but better assertion due to padding interleaving
-                                                     //different .NET versions use different approach to layout the STRUCT2
-                                                     //sometimes the padding in inside the struct instead of end
+            Assert.AreEqual(8 + (IntPtr.Size is 8 ? 1: 0), structLayout.Count());//In x86 there is less padding at end
+            //Not perfect but better assertion due to padding interleaving
+            //different .NET versions use different approach to layout the STRUCT2
+            //sometimes the padding in inside the struct instead of end
         }
 
         [Test]
@@ -62,9 +76,9 @@ namespace ObjectLayoutInspector.Tests
             var layout = UnsafeLayout.GetFieldsLayout<ExplicitHolderOfSequentialIntObjectStruct>();
             Assert.AreEqual(2, layout.Count);
             Assert.AreEqual(0, layout[0].Offset);
-            Assert.AreEqual(8, layout[0].Size);
+            Assert.AreEqual(IntPtr.Size, layout[0].Size);
             Assert.AreEqual(typeof(object), layout[0].FieldInfo.FieldType);
-            Assert.AreEqual(8, layout[1].Offset);
+            Assert.AreEqual(IntPtr.Size, layout[1].Offset);
             Assert.AreEqual(4, layout[1].Size);
             Assert.AreEqual(typeof(int), layout[1].FieldInfo.FieldType);
         }

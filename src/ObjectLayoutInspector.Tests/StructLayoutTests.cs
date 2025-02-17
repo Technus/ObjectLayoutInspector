@@ -1,4 +1,7 @@
 ﻿using NUnit.Framework;
+using System.Runtime.CompilerServices;
+using System;
+using ObjectLayoutInspector.Tests.Structs;
 
 namespace ObjectLayoutInspector.Tests
 {
@@ -45,7 +48,7 @@ namespace ObjectLayoutInspector.Tests
 
             TypeLayout.PrintLayout<WithVolatile>();
             var typeLayout = TypeLayout.GetLayout<WithVolatile>();
-            Assert.That(typeLayout.FullSize, Is.EqualTo(16));
+            Assert.That(typeLayout.FullSize, Is.EqualTo(8 + IntPtr.Size));
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace ObjectLayoutInspector.Tests
+namespace ObjectLayoutInspector.Tests.Structs
 {
 
     [StructLayout(LayoutKind.Sequential)]

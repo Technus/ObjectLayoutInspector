@@ -69,7 +69,7 @@ namespace ObjectLayoutInspector
                 .ToArray();
 
             var layouts = new List<FieldLayoutBase>();
-            Padder.AddPaddings(true, Unsafe.SizeOf<T>(), fieldsLayout, layouts);
+            Padder.AddPaddings(true, Unsafe.SizeOf<T>(), fieldsLayout, layouts, typeof(T));
             return layouts;
         }
 
@@ -190,11 +190,7 @@ namespace ObjectLayoutInspector
                 case NodeKind.Fixed:
                     return new FieldLayout(node.fixedNode.totalOffset, node.fixedNode.info, node.fixedNode.size);
                 case NodeKind.Complex:
-                    {
-                        var lastNodeKind = node.complexNode.children[node.complexNode.children.Length - 1].kind;
-                        var layout = new FieldLayout(node.complexNode.totalOffset, node.complexNode.info, node.complexNode.size);
-                        return lastNodeKind != NodeKind.Fixed ? FixPadding(layout) : layout;
-                    }
+                    return FixSizePadding(ref node.complexNode);
 
                 default:
                     throw new NotImplementedException($"{node.kind} is not supported");
@@ -205,14 +201,26 @@ namespace ObjectLayoutInspector
         // counts padding in the end of first struct as part of it
         // Unsafe can support padding in the end, but not in the end and state (doubt this happens)
         // https://en.wikipedia.org/wiki/Data_structure_alignment
-        private static FieldLayout FixPadding(FieldLayout x)
+        private static bool ShouldFixSize(ref ComplexNode node, bool ignoreSizeModulo)
         {
-            if (x.Size > 8 && x.Size % 8 != 0 && !Detectors.IsFixed(x.FieldInfo, out var _))
+            var lastNodeKind = node.children[node.children.Length - 1].kind;
+            return lastNodeKind != NodeKind.Fixed && node.size > IntPtr.Size && (ignoreSizeModulo || node.size % IntPtr.Size != 0) && !Detectors.IsFixed(node.info, out var _);
+        }
+
+        private static FieldLayout FixSizePadding(ref ComplexNode node)
+        {
+            var fl = new FieldLayout(node.totalOffset, node.info, node.size);
+
+            if (ShouldFixSize(ref node, ignoreSizeModulo: false))
             {
-                return new FieldLayout(x.Offset, x.FieldInfo, x.Size + x.Size % 8);
+                var runtimeSize = SizeOf(node.Type);
+                var computedSize = fl.Size + fl.Size % IntPtr.Size;
+                if (computedSize != runtimeSize)
+                    throw new InvalidOperationException($"Runtime Size {runtimeSize} is not equal to computed size with padding {computedSize}");
+                return new FieldLayout(fl.Offset, fl.FieldInfo, computedSize);
             }
 
-            return x;
+            return fl;
         }
 
         private static RootNode GetLayoutTree<T>() where T : struct
@@ -221,7 +229,7 @@ namespace ObjectLayoutInspector
             var (fields, _) = FieldNode.GetFieldNodes(type);
             var root = new FieldNode { kind = NodeKind.Root, rootNode = new RootNode { children = fields, totalOffset = 0, size = Unsafe.SizeOf<T>() } };
             var previous = 0;
-            GetLayout<T>(ref previous, ref root, new List<ValueGetter>(), new List<Twiddler<T>?> { null });
+            GetLayout(ref previous, ref root, new List<ValueGetter>(), new List<Twiddler<T>?> { null });
 
             return root.rootNode;
         }
@@ -240,13 +248,13 @@ namespace ObjectLayoutInspector
                     break;
                 case NodeKind.Primitive:
                     var pType = node.primitiveNode.Type;
-                    Func<object?, bool> primitiveEmptyComparator = x => Activator.CreateInstance(pType).Equals(x);
+                    ValueComparer primitiveEmptyComparator = x => Activator.CreateInstance(pType).Equals(x);
                     if (!Detectors.IsNullable(node.info.DeclaringType))
                     {
                         getterHierarchy.Add(node.info.GetValue);
                     }
 
-                    FindPrimitiveOffset<T>(ref node.primitiveNode, getterHierarchy, primitiveEmptyComparator, twiddlerHierarchy);
+                    FindPrimitiveOffset(ref node.primitiveNode, getterHierarchy, primitiveEmptyComparator, twiddlerHierarchy);
 
                     if (!Detectors.IsNullable(node.info.DeclaringType))
                     {
@@ -268,7 +276,7 @@ namespace ObjectLayoutInspector
                     ValueGetter hasValueGetter = x => x is null ? null : propertyGetter.GetValue(x);
                     getterHierarchy.Add(hasValueGetter);
                     ValueComparer hasValueEmptyComparator = x => x is null;
-                    FindPrimitiveOffset<T>(ref hasValue.primitiveNode, getterHierarchy, hasValueEmptyComparator, twiddlerHierarchy);
+                    FindPrimitiveOffset(ref hasValue.primitiveNode, getterHierarchy, hasValueEmptyComparator, twiddlerHierarchy);
                     getterHierarchy.RemoveAt(getterHierarchy.Count - 1);
 
                     var underType = Nullable.GetUnderlyingType(node.nullableNode.Type);
@@ -277,7 +285,7 @@ namespace ObjectLayoutInspector
                     getterHierarchy.Add(valueProperty.GetValue);
                     var t = new NullableTwiddler(hasValue.totalOffset);
                     twiddlerHierarchy.Add(t.Twiddle);
-                    GetLayout<T>(ref previous, ref node.nullableNode.value.value, getterHierarchy, twiddlerHierarchy);
+                    GetLayout(ref previous, ref node.nullableNode.value.value, getterHierarchy, twiddlerHierarchy);
                     twiddlerHierarchy.RemoveAt(twiddlerHierarchy.Count - 1);
                     node.totalOffset = hasValue.primitiveNode.totalOffset;
                     node.nullableNode.size = node.nullableNode.value.value.totalOffset + node.nullableNode.value.value.size - node.totalOffset;
@@ -290,7 +298,7 @@ namespace ObjectLayoutInspector
                     var fType = node.primitiveNode.Type;
                     ValueComparer fixedEmptyComparator = x => Activator.CreateInstance(fType).Equals(x);
                     getterHierarchy.Add(node.info.GetValue);
-                    FindPrimitiveOffset<T>(ref node.primitiveNode, getterHierarchy, fixedEmptyComparator, twiddlerHierarchy);
+                    FindPrimitiveOffset(ref node.primitiveNode, getterHierarchy, fixedEmptyComparator, twiddlerHierarchy);
                     getterHierarchy.RemoveAt(getterHierarchy.Count - 1);
                     node.fixedNode.size = node.fixedNode.size * node.fixedNode.length;
                     break;
@@ -300,7 +308,7 @@ namespace ObjectLayoutInspector
                         for (var i = 0; i < node.rootNode.children.Length; i++)
                         {
                             ref var child = ref node.rootNode.children[i];
-                            GetLayout<T>(ref previous, ref child, getterHierarchy, twiddlerHierarchy);
+                            GetLayout(ref previous, ref child, getterHierarchy, twiddlerHierarchy);
                         }
                     }
                     break;
@@ -315,7 +323,7 @@ namespace ObjectLayoutInspector
                     for (var i = 0; i < node.complexNode.children.Length; i++)
                     {
                         ref var child = ref node.complexNode.children[i];
-                        GetLayout<T>(ref previous, ref child, getterHierarchy, twiddlerHierarchy);
+                        GetLayout(ref previous, ref child, getterHierarchy, twiddlerHierarchy);
                     }
 
                     //TODO: use ref compare-sort https://github.com/dotnet/corefx/issues/33927
@@ -325,9 +333,18 @@ namespace ObjectLayoutInspector
                     for (var i = 0; i < node.complexNode.children.Length; i++)
                     {
                         ref var child = ref node.complexNode.children[i];
-                        var possibleEnd = child.totalOffset + child.size;
-                        node.complexNode.size = Math.Max(node.complexNode.size, possibleEnd - node.complexNode.totalOffset);
+                        var possibleEnd = child.totalOffset + child.size;//might be smaller than actual struct size
+                        var size = possibleEnd - node.complexNode.totalOffset;
+                        node.complexNode.size = Math.Max(node.complexNode.size, size);
                     }
+
+                    if (node.complexNode.Type.IsValueType)
+                    {
+                        var unsafeSize = SizeOf(node.complexNode.Type);
+                        if (ShouldFixSize(ref node.complexNode, ignoreSizeModulo: true))
+                            node.complexNode.size = Math.Max(node.complexNode.size, unsafeSize);
+                    }
+
 
                     if (!Detectors.IsNullable(node.info.DeclaringType))
                     {
@@ -345,7 +362,7 @@ namespace ObjectLayoutInspector
         private static void FindPrimitiveOffset<T>(
            ref PrimitiveNode node,
            List<ValueGetter> getterHierarchy,
-           Func<object?, bool> emptyComparator,
+           ValueComparer emptyComparator,
            List<Twiddler<T>?> twiddlerHierarchy)
            where T : struct
         {
@@ -390,7 +407,7 @@ namespace ObjectLayoutInspector
             throw new NotImplementedException($"Failed to find offset and size of {node.Type.FullName} in {typeof(T).FullName}");
         }
 
-        private static void FindReferenceOffset<T>(ref ReferenceNode node, List<Func<object?, object?>> getterHierarchy)
+        private static void FindReferenceOffset<T>(ref ReferenceNode node, List<ValueGetter> getterHierarchy)
                where T : struct
         {
             var fieldInfo = node.info;
@@ -428,11 +445,22 @@ namespace ObjectLayoutInspector
             object? value = rootDummy;
             for (int i = 0; i < getterHierarchy.Count; i++)
             {
-                Func<object?, object?> field = getterHierarchy[i];
+                var field = getterHierarchy[i];
                 value = field(value);
             }
 
             return value;
+        }
+
+        /// <summary>
+        /// Gets the runtime sizeof... from class structure
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        internal static unsafe int SizeOf(Type type)
+        {
+            var typeHandle = type.TypeHandle.Value;
+            return (*(int*)(typeHandle + 4)) - 2*IntPtr.Size;
         }
     }
 }

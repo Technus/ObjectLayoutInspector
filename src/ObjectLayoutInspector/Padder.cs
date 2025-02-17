@@ -1,28 +1,28 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 
 namespace ObjectLayoutInspector
 {
     internal static class Padder
     {
-        public static void AddPaddings(bool includePaddings, int size, FieldLayout[] fieldsOffsets, List<FieldLayoutBase> layouts)
+        public static void AddPaddings(bool includePaddings, int size, FieldLayout[] fieldsOffsets, List<FieldLayoutBase> layouts, Type type)
         {
             if (includePaddings)
             {
-                var dict = new Dictionary<Type, (int start, int end, List<FieldLayout> fields)>();
+                var allBits = new BitArray(size);
+                var dict = new Dictionary<Type, (List<FieldLayout> fields, BitArray usedBytes)>();
 
                 foreach (var fieldOffset in fieldsOffsets)
                 {
                     if (dict.TryGetValue(fieldOffset.DeclaringType, out var range))
                     {
                         range.fields.Add(fieldOffset);
-                        range = (Math.Min(range.start, fieldOffset.Offset), Math.Max(range.end, fieldOffset.Offset + fieldOffset.Size), range.fields);
+                        range = (range.fields, range.usedBytes.SetRange(fieldOffset));
                     }
                     else
                     {
-                        range = (fieldOffset.Offset, fieldOffset.Offset + fieldOffset.Size, new List<FieldLayout>() { fieldOffset });
+                        range = (new List<FieldLayout>() { fieldOffset }, new BitArray(size).SetRange(fieldOffset));
                     }
 
                     dict[fieldOffset.DeclaringType] = range;
@@ -30,30 +30,35 @@ namespace ObjectLayoutInspector
 
                 foreach (var item in dict)
                 {
-                    if (item.Value.start != 0)
+                    var startPaddingSize = item.Value.usedBytes.GetRange(0);
+                    if (startPaddingSize > 0)
+                        layouts.Add(new Padding(0, startPaddingSize, item.Key));
+
+                    foreach (var field in item.Value.fields)
                     {
-                        layouts.Add(new Padding(0, item.Value.start, item.Key));
+                        layouts.Add(field);
+                        var paddingSize = item.Value.usedBytes.GetRange(field.Offset + field.Size);
+                        if (paddingSize > 0)
+                            layouts.Add(new Padding(field.Offset + field.Size, paddingSize, item.Key));
                     }
 
-                    var field = item.Value.fields[0];
-                    layouts.Add(field);
+                    allBits.Or(item.Value.usedBytes);
+                }
 
-                    for (int index = 1; index < item.Value.fields.Count; index++)
+                int start = -1, i = 0;
+                for (; i < size; i++)
+                {
+                    var notSet = !allBits.Get(i);
+                    if(notSet && start is -1)
+                        start=i;
+                    else if (!notSet && !(start is -1))
                     {
-                        var fieldNext = item.Value.fields[index];
-                        if(field.Offset+field.Size != fieldNext.Offset)
-                        {
-                            layouts.Add(new Padding(field.Offset + field.Size, fieldNext.Offset - (field.Offset + field.Size), item.Key));
-                        }
-                        layouts.Add(fieldNext);
-                        field = fieldNext;
-                    }
-
-                    if (item.Value.end != size)
-                    {
-                        layouts.Add(new Padding(item.Value.end, size - item.Value.end, item.Key));
+                        layouts.Add(new Padding(start, i - start, type));
+                        start = -1;
                     }
                 }
+                if (!(start is -1))
+                    layouts.Add(new Padding(start, size - start, type));
             }
             else
             {

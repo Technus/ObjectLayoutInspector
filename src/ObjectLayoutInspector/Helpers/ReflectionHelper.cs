@@ -58,6 +58,12 @@ namespace ObjectLayoutInspector.Helpers
             // Value types are handled separately
             if (t.IsValueType)
             {
+                var nullableType = Nullable.GetUnderlyingType(t);
+                if (nullableType is object)
+                {
+                    return Success(GetUninitializedObject(t));
+                }
+
                 return Success(Activator.CreateInstance(t));
             }
 
