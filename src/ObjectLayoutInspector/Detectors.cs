@@ -21,7 +21,8 @@ namespace ObjectLayoutInspector
             fieldInfo.FieldType.IsPrimitive || fieldInfo.FieldType.IsEnum || fieldInfo.FieldType == typeof(decimal);
 
         public static bool IsNullable(FieldInfo fieldInfo) => IsNullable(fieldInfo.FieldType);
+
         public static bool IsNullable(Type type) =>
-              type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);              
+              type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Nullable<>);
     }
 }

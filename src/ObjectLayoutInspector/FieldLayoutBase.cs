@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ObjectLayoutInspector.Helpers;
+using System;
 using System.Diagnostics;
 using System.Reflection;
 
@@ -12,7 +13,11 @@ namespace ObjectLayoutInspector
         /// <summary>
         /// Size of a field.
         /// </summary>
+#if NET8_0_OR_GREATER
+        public virtual int Size { get; }
+#else
         public int Size { get; }
+#endif
 
         /// <summary>
         /// An offset of a field from the beginning of a struct.
@@ -22,7 +27,7 @@ namespace ObjectLayoutInspector
         /// <summary>
         /// Type which declared this field
         /// </summary>
-        public abstract Type DeclaringType { get; }
+        public abstract Type? DeclaringType { get; }
 
         /// <nodoc />
         protected FieldLayoutBase(int offset, int size)
@@ -39,13 +44,14 @@ namespace ObjectLayoutInspector
         public override string ToString()
         {
             int fieldSize = Size;
+
             string byteOrBytes = fieldSize == 1 ? "byte" : "bytes";
 
-            string offsetStr = $"{Offset}-{Offset - 1 + fieldSize}";
+            string offsetStr;
             if (fieldSize == 1)
-            {
                 offsetStr = Offset.ToString();
-            }
+            else
+                offsetStr = $"{Offset}-{Offset - 1 + fieldSize}";
 
             return $"{offsetStr,5}: {NameOrDescription} ({fieldSize} {byteOrBytes})";
         }
@@ -64,13 +70,17 @@ namespace ObjectLayoutInspector
             : base(offset, size)
         {
             FieldInfo = fieldInfo;
+#if NET8_0_OR_GREATER
+            InlineArraySize = DeclaringType?.InlineArrayLength() ?? 0;
+#endif
         }
 
-        /// <nodoc />
-        public FieldInfo FieldInfo { get; }
 
         /// <nodoc />
-        public override Type DeclaringType => FieldInfo.DeclaringType;
+        public FieldInfo? FieldInfo { get; }
+
+        /// <nodoc />
+        public override Type? DeclaringType => FieldInfo?.DeclaringType;
 
         /// <inheritdoc />
         public override bool Equals(object obj) =>
@@ -84,7 +94,18 @@ namespace ObjectLayoutInspector
 
         /// <inheritdoc />
         protected override string NameOrDescription =>
-            $"{FieldInfo.FieldType.Name} {FieldInfo.Name} for {DeclaringType.Name}";
+#if NET8_0_OR_GREATER
+            InlineArraySize > 0 ? $"{FieldInfo?.FieldType.Name}[{InlineArraySize}] {FieldInfo?.Name} for {DeclaringType?.Name}" :
+#endif
+            $"{FieldInfo?.FieldType.Name} {FieldInfo?.Name} for {DeclaringType?.Name}";
+
+#if NET8_0_OR_GREATER
+        /// <inheritdoc />
+        public sealed override int Size => InlineArraySize > 0 ? InlineArraySize * base.Size : base.Size;
+
+        /// <nodoc />
+        public int InlineArraySize { get; }
+#endif
     }
 
     /// <summary>
@@ -99,11 +120,11 @@ namespace ObjectLayoutInspector
         }
 
         /// <nodoc />
-        public override Type DeclaringType { get; }
+        public override Type? DeclaringType { get; }
 
         /// <inheritdoc />
         protected override string NameOrDescription => 
-            $"padding for {DeclaringType.Name}";
+            $"padding for {DeclaringType?.Name}";
 
         /// <inheritdoc />
         public override bool Equals(object obj) =>

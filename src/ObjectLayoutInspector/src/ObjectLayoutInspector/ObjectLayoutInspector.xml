@@ -56,6 +56,12 @@
         <member name="P:ObjectLayoutInspector.FieldLayout.NameOrDescription">
             <inheritdoc />
         </member>
+        <member name="P:ObjectLayoutInspector.FieldLayout.Size">
+            <inheritdoc />
+        </member>
+        <member name="P:ObjectLayoutInspector.FieldLayout.InlineArraySize">
+            <nodoc />
+        </member>
         <member name="T:ObjectLayoutInspector.Padding">
             <summary>
             Represents a padding between fields.
@@ -101,6 +107,13 @@
             <summary>
             Returns true if a given type is unsafe.
             </summary>
+        </member>
+        <member name="M:ObjectLayoutInspector.Helpers.ReflectionHelper.InlineArrayLength(System.Type)">
+            <summary>
+            Checks if the type is inline array, returns the <see cref="P:System.Runtime.CompilerServices.InlineArrayAttribute.Length"/>
+            </summary>
+            <param name="t"></param>
+            <returns><see cref="P:System.Runtime.CompilerServices.InlineArrayAttribute.Length"/></returns>
         </member>
         <member name="M:ObjectLayoutInspector.LayoutPrinter.Print``1(System.Boolean)">
             <summary>
@@ -196,7 +209,17 @@
         </member>
         <member name="P:ObjectLayoutInspector.TypeLayout.Paddings">
             <summary>
-            Size of an empty space in the instance.
+            Size of an always empty space in the instance.
+            </summary>
+        </member>
+        <member name="P:ObjectLayoutInspector.TypeLayout.Used">
+            <summary>
+            Size of an always used space in the instance.
+            </summary>
+        </member>
+        <member name="P:ObjectLayoutInspector.TypeLayout.Mixed">
+            <summary>
+            Size of empty/or used space in the instance.
             </summary>
         </member>
         <member name="P:ObjectLayoutInspector.TypeLayout.UsedBytes">
@@ -301,6 +324,13 @@
             <param name="considerPrimitives">Eny type in collection will be considered primitive and will not be splitted into several fields.</param>
             <param name="recursive">If true the resulting list will have fields for all nested types as well.</param>
             <param name="hierarchical">Not implemented yet if specified.</param>
+        </member>
+        <member name="M:ObjectLayoutInspector.UnsafeLayout.SizeOf(System.Type)">
+            <summary>
+            Gets the runtime sizeof... from class structure
+            </summary>
+            <param name="type"></param>
+            <returns></returns>
         </member>
         <member name="F:ObjectLayoutInspector.NullableNode.hasValue">
             <summary>

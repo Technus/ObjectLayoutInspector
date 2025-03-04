@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using ObjectLayoutInspector.Helpers;
@@ -23,30 +22,24 @@ namespace ObjectLayoutInspector
         public static (FieldNode[] fields, Type[] types) GetFieldNodes(Type type)
         {
             var (fields, types) = ReflectionHelper.GetInstanceFields(type);
-            return (fields.Select(x =>
+
+            var fieldNodes = new FieldNode[fields.Length];
+            for (int i = 0; i < fields.Length; i++)
             {
+                var x = fields[i];
                 if (x.FieldType.IsClass)
-                {
-                    return new FieldNode { kind = NodeKind.Reference, referenceNode = new ReferenceNode(x) };
-                }
+                    fieldNodes[i] = new FieldNode { kind = NodeKind.Reference, referenceNode = new ReferenceNode(x) };
+                else if (Detectors.IsPrimitive(x))
+                    fieldNodes[i] = new FieldNode { kind = NodeKind.Primitive, primitiveNode = new PrimitiveNode { info = x } };
+                else if (Detectors.IsNullable(x))
+                    fieldNodes[i] = new FieldNode { kind = NodeKind.Nullable, nullableNode = new NullableNode { info = x } };
+                else if (Detectors.IsFixed(x, out int length))
+                    fieldNodes[i] = new FieldNode { kind = NodeKind.Fixed, fixedNode = new FixedNode { info = x, length = length } };
+                else
+                    fieldNodes[i] = new FieldNode { kind = NodeKind.Complex, complexNode = new ComplexNode { info = x } };
+            }
 
-                if (Detectors.IsPrimitive(x))
-                {
-                    return new FieldNode { kind = NodeKind.Primitive, primitiveNode = new PrimitiveNode { info = x } };
-                }
-
-                if (Detectors.IsNullable(x))
-                {
-                    return new FieldNode { kind = NodeKind.Nullable, nullableNode = new NullableNode { info = x } };
-                }
-
-                if (Detectors.IsFixed(x, out int length))
-                {
-                    return new FieldNode { kind = NodeKind.Fixed, fixedNode = new FixedNode { info = x, length = length } };
-                }
-
-                return new FieldNode { kind = NodeKind.Complex, complexNode = new ComplexNode { info = x } };
-            }).ToArray(), types);
+            return (fieldNodes, types);
         }
 
         [FieldOffset(0)]
@@ -54,12 +47,6 @@ namespace ObjectLayoutInspector
 
         [FieldOffset(8)]
         public int size;
-
-        [FieldOffset(12)]
-        public int totalOffset;
-
-        [FieldOffset(24)]
-        public FieldInfo info;
 
         [FieldOffset(8)]
         public PrimitiveNode primitiveNode;
@@ -78,6 +65,12 @@ namespace ObjectLayoutInspector
 
         [FieldOffset(8)]
         public ReferenceNode referenceNode;
+
+        [FieldOffset(12)]
+        public int totalOffset;
+
+        [FieldOffset(24)]
+        public FieldInfo info;
 
         public Type Type => info.FieldType;
     }

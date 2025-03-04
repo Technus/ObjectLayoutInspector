@@ -203,6 +203,8 @@ namespace ObjectLayoutInspector
         // https://en.wikipedia.org/wiki/Data_structure_alignment
         private static bool ShouldFixSize(ref ComplexNode node, bool ignoreSizeModulo)
         {
+            if (node.children.Length == 0)
+                return false;
             var lastNodeKind = node.children[node.children.Length - 1].kind;
             return lastNodeKind != NodeKind.Fixed && node.size > IntPtr.Size && (ignoreSizeModulo || node.size % IntPtr.Size != 0) && !Detectors.IsFixed(node.info, out var _);
         }
@@ -328,7 +330,7 @@ namespace ObjectLayoutInspector
 
                     //TODO: use ref compare-sort https://github.com/dotnet/corefx/issues/33927
                     node.complexNode.children = node.complexNode.children.OrderBy(x => x.totalOffset).ThenByDescending(x => x.size).ToArray();
-                    node.totalOffset = node.complexNode.children[0].totalOffset;
+                    node.totalOffset = node.complexNode.children.Length > 0 ? node.complexNode.children[0].totalOffset : 0;
 
                     for (var i = 0; i < node.complexNode.children.Length; i++)
                     {

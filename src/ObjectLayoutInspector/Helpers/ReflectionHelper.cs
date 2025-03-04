@@ -129,6 +129,15 @@ namespace ObjectLayoutInspector.Helpers
         /// <summary>
         /// Returns true if a given type is unsafe.
         /// </summary>
-        public static bool IsUnsafeValueType(this Type t) => t.GetCustomAttribute(typeof(UnsafeValueTypeAttribute)) is object;
+        public static bool IsUnsafeValueType(this Type t) => t.GetCustomAttribute<UnsafeValueTypeAttribute>() is object;
+
+#if NET8_0_OR_GREATER
+        /// <summary>
+        /// Checks if the type is inline array, returns the <see cref="InlineArrayAttribute.Length"/>
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns><see cref="InlineArrayAttribute.Length"/></returns>
+        public static int InlineArrayLength(this Type t) => t.GetCustomAttribute<InlineArrayAttribute>()?.Length ?? 0;
+#endif
     }
 }
