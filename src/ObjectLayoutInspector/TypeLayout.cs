@@ -104,7 +104,11 @@ namespace ObjectLayoutInspector
             cache.LayoutCache.AddOrUpdate(type, this, (t, layout) => layout);
         }
 
+#if NET8_0_OR_GREATER
+        internal static void SetByteBits(FieldLayoutBase[] fields, BitArray used, BitArray padding, TypeLayoutCache? cache, int offset = 0, FieldLayout flParent = default)
+#else
         internal static void SetByteBits(FieldLayoutBase[] fields, BitArray used, BitArray padding, TypeLayoutCache? cache, int offset = 0)
+#endif
         {
             foreach (var field in fields)
             {
@@ -118,16 +122,40 @@ namespace ObjectLayoutInspector
                         GetLayout(fl.FieldInfo.FieldType, cache, includePaddings: true) is var lo && 
                         !lo.IsUnsafeValueType)
                     {
+#if NET8_0_OR_GREATER
+                        SetByteBits(lo.Fields, used, padding, cache, offset + fl.Offset, fl);
+#else
                         SetByteBits(lo.Fields, used, padding, cache, offset + fl.Offset);
+#endif
                     }
                     else
                     {
-                        used.SetRange(field, offset);
+#if NET8_0_OR_GREATER
+                        if(flParent?.InlineArrayLength is int ial && ial > 0)
+                        {
+                            for (int i = 0; i < ial; i++)
+                            {
+                                used.SetRange(field, offset + i * flParent.Size / ial);
+                            }
+                        }
+                        else
+#endif
+                            used.SetRange(field, offset);
                     }
                 }
                 else
                 {
-                    padding.SetRange(field, offset);
+#if NET8_0_OR_GREATER
+                    if (flParent?.InlineArrayLength is int ial && ial > 0)
+                    {
+                        for (int i = 0; i < ial; i++)
+                        {
+                            padding.SetRange(field, offset + i * flParent.Size / ial);
+                        }
+                    }
+                    else
+#endif
+                        padding.SetRange(field, offset);
                 }
             }
         }
