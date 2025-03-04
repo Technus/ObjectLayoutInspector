@@ -459,6 +459,7 @@ namespace ObjectLayoutInspector
         /// </summary>
         /// <param name="type"></param>
         /// <returns></returns>
+        /// <remarks>Will return only base size for arrays?: memory size = base size + length * item size</remarks>
         internal static unsafe int SizeOf(Type type)
         {
             var typeHandle = type.TypeHandle.Value;
