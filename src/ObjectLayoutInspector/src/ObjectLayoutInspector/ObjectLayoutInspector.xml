@@ -59,7 +59,7 @@
         <member name="P:ObjectLayoutInspector.FieldLayout.Size">
             <inheritdoc />
         </member>
-        <member name="P:ObjectLayoutInspector.FieldLayout.InlineArraySize">
+        <member name="P:ObjectLayoutInspector.FieldLayout.InlineArrayLength">
             <nodoc />
         </member>
         <member name="T:ObjectLayoutInspector.Padding">
@@ -331,6 +331,7 @@
             </summary>
             <param name="type"></param>
             <returns></returns>
+            <remarks>Will return only base size for arrays?: memory size = base size + length * item size</remarks>
         </member>
         <member name="F:ObjectLayoutInspector.NullableNode.hasValue">
             <summary>

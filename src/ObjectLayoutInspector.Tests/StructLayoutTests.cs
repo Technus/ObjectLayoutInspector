@@ -135,6 +135,26 @@ namespace ObjectLayoutInspector.Tests
         }
 
         [Test]
+        public void Print_Inline1_ComplexNullable()
+        {
+            TypeLayout.PrintLayout<Inline1<Complex?>>();
+            var unsafeLayout = UnsafeLayout.GetLayout<Inline1<Complex?>>();
+            var typeLayout = TypeLayout.GetLayout<Inline1<Complex?>>();
+            Assert.That(typeLayout.FullSize, Is.EqualTo(Unsafe.SizeOf<Complex?>()));
+            Assert.That(typeLayout.Fields.All(x => x is FieldLayout), "Has no padding");
+        }
+
+        [Test]
+        public void Print_Inline10_ComplexNullable()
+        {
+            TypeLayout.PrintLayout<Inline10<Complex?>>();
+            var unsafeLayout = UnsafeLayout.GetLayout<Inline10<Complex?>>();
+            var typeLayout = TypeLayout.GetLayout<Inline10<Complex?>>();
+            Assert.That(typeLayout.FullSize, Is.EqualTo(10 * Unsafe.SizeOf<Complex?>()));
+            Assert.That(typeLayout.Fields.All(x => x is FieldLayout), "Has no padding");
+        }
+
+        [Test]
         public void Print_Inline1_BoolBoolStruct()
         {
             TypeLayout.PrintLayout<Inline1<BoolBoolStruct>>();

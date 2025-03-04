@@ -66,12 +66,12 @@ namespace ObjectLayoutInspector
     public sealed class FieldLayout : FieldLayoutBase
     {
         /// <nodoc />
-        public FieldLayout(int offset, FieldInfo fieldInfo, int size)
+        public FieldLayout(int offset, FieldInfo? fieldInfo, int size)
             : base(offset, size)
         {
             FieldInfo = fieldInfo;
 #if NET8_0_OR_GREATER
-            InlineArraySize = DeclaringType?.InlineArrayLength() ?? 0;
+            InlineArrayLength = DeclaringType?.InlineArrayLength() ?? 0;
 #endif
         }
 
@@ -95,16 +95,16 @@ namespace ObjectLayoutInspector
         /// <inheritdoc />
         protected override string NameOrDescription =>
 #if NET8_0_OR_GREATER
-            InlineArraySize > 0 ? $"{FieldInfo?.FieldType.Name}[{InlineArraySize}] {FieldInfo?.Name} for {DeclaringType?.Name}" :
+            InlineArrayLength > 0 ? $"{FieldInfo?.FieldType.Name}[{InlineArrayLength}] {FieldInfo?.Name} for {DeclaringType?.Name}" :
 #endif
             $"{FieldInfo?.FieldType.Name} {FieldInfo?.Name} for {DeclaringType?.Name}";
 
 #if NET8_0_OR_GREATER
         /// <inheritdoc />
-        public sealed override int Size => InlineArraySize > 0 ? InlineArraySize * base.Size : base.Size;
+        public sealed override int Size => InlineArrayLength > 0 ? InlineArrayLength * base.Size : base.Size;
 
         /// <nodoc />
-        public int InlineArraySize { get; }
+        public int InlineArrayLength { get; }
 #endif
     }
 
@@ -114,7 +114,7 @@ namespace ObjectLayoutInspector
     public sealed class Padding : FieldLayoutBase
     {
         /// <nodoc />
-        public Padding(int offset, int size, Type declaringType) : base(offset, size)
+        public Padding(int offset, int size, Type? declaringType) : base(offset, size)
         {
             DeclaringType = declaringType;
         }

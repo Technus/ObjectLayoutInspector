@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using ValueGetter = System.Func<object?, object?>;
 using ValueComparer = System.Func<object?, bool>;
+using ObjectLayoutInspector.Helpers;
 
 namespace ObjectLayoutInspector
 {
@@ -347,6 +348,26 @@ namespace ObjectLayoutInspector
                             node.complexNode.size = Math.Max(node.complexNode.size, unsafeSize);
                     }
 
+#if NET8_0_OR_GREATER
+                    var inlineArrayLength = node.complexNode.info?.DeclaringType?.InlineArrayLength() ?? 0;
+                    if (inlineArrayLength > 0)
+                    {
+                        var fieldsNodes = new FieldNode[node.complexNode.children.Length * inlineArrayLength];
+                        for (int i = 0, l = node.complexNode.children.Length; i < l; i++)
+                        {
+                            ref var child = ref node.complexNode.children[i];
+                            for (int j = 0; j < inlineArrayLength; j++)
+                            {
+                                var k = j * l + i;
+                                ref var clone = ref fieldsNodes[k];
+                                clone = child;
+                                clone.totalOffset += node.complexNode.size * j;
+                            }
+                        }
+                        node.complexNode.size *= inlineArrayLength;
+                        node.complexNode.children = fieldsNodes;
+                    }
+#endif
 
                     if (!Detectors.IsNullable(node.info.DeclaringType))
                     {
